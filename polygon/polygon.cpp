@@ -30,11 +30,22 @@ class polygon {
     private:
         unsigned int number_point;
         Point *verteces;
-        unsigned int i;
+        unsigned int config = 0;
+		unsigned int concave_count = 0;
     public:
         polygon():number_point(0), verteces(nullptr) {}
         polygon(const char*);
-
+		void configure() {
+			this->config = 1;
+		}
+		friend ostream& operator<< ( ostream& os, const polygon& P ) {
+			switch(P.config) {
+				case 1: os << "Convex"; break;
+				case 2: os << "Concave " << P.concave_count; break;
+				default: os << "None"; break;
+				}
+			return os;
+			}	
     };
 
 polygon::polygon(const char* filename) {
@@ -55,11 +66,22 @@ polygon::polygon(const char* filename) {
     for (size_t i = 0; i< this->number_point ; i++) {
         file >> x >> y;
         this->verteces[i] = Point(x,y);
+#ifdef TEST
+	cout << "(" << verteces[i].first << ", " << verteces[i].second <<")" <<endl;
+#endif
         }
     file.close();
     }
 
 int main() {
     polygon p("polygon.inp");
+  	p.configure();	
+#ifdef TEST
+	cout << p << endl;
+#else
+	fstream file("polygon.out", ios::out);
+	file << p << endl;
+	file.close();
+#endif	
     return 0;
     }

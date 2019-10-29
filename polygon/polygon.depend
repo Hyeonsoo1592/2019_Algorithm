@@ -1,0 +1,11 @@
+# depslib dependency file v1.0
+1560144645 source:e:\github\2019_algorithm\polygon\polygon.cpp
+	<iostream>
+	<fstream>
+	<functional>
+	<algorithm>
+	<cstring>
+	<string>
+	<sstream>
+	<cmath>
+

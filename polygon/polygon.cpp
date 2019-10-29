@@ -3,12 +3,14 @@
 #include <functional>
 #include <algorithm>
 #include <cstring>
+#include <string>
+#include <sstream>
 #include <cmath>
 using namespace std;
 
 typedef pair<int, int> Point;
 
-const bool operator< ( const Point& L, const Point &R ) {
+const bool operator< ( Point& L, Point &R ) {
     if ( L.first == R.first )
         return L.second < R.second;
     else
@@ -16,8 +18,8 @@ const bool operator< ( const Point& L, const Point &R ) {
     }
 
 const double mag(const Point &A) {
-	return pow(((double)(A.first * A.first)+(double)(A.second * A.second)),0.5);
-    }	
+    return pow(((double)(A.first * A.first)+(double)(A.second * A.second)),0.5);
+    }
 
 const double signed_surface_tri ( const Point &p1, const Point &p2, const Point &p3) {
     double res = 0;
@@ -36,29 +38,38 @@ class polygon {
         unsigned int number_point;
         Point *verteces;
         unsigned int config = 0;
-		unsigned int concave_count = 0;
-		const double theta_is_neg(Point &a, Point &b, Point &c) {
-			Point vec_a = Point((b.first - a.first), (b.second - a.second));
-			Point vec_b = Point((c.first - b.first), (c.second - b.second));
-			double outer = static_cast<double>(vec_a.first * vec_b.second) - static_cast<double>(vec_a.second * vec_b.first);
-#ifdef TEST
-			cout << mag(vec_a) << " " << mag(vec_b) << " Outer :: " << vec_a.first * vec_b.second << "-" << (vec_a.second * vec_b.first) <<"=" << outer <<" ";
-#endif
-			outer /= (mag(vec_a) * mag(vec_b));
-			return outer;
-		}
+        unsigned int concave_count = 0;
+        const double cross(Point &a, Point &b, Point &c) {
+            Point vec_a = Point((b.first - a.first), (b.second - a.second));
+            Point vec_b = Point((c.first - b.first), (c.second - b.second));
+            double outer = static_cast<double>(vec_a.first * vec_b.second) - static_cast<double>(vec_a.second * vec_b.first);
+            return outer;
+            }
+        const double theta_is_neg(Point &a, Point &b, Point &c) {
+            Point vec_a = Point((b.first - a.first), (b.second - a.second));
+            Point vec_b = Point((c.first - b.first), (c.second - b.second));
+            double outer = cross(a,b,c);
+            outer /= (mag(vec_a) * mag(vec_b));
+            return outer;
+            }
     public:
         polygon():number_point(0), verteces(nullptr) {}
         polygon(const char*);
-		void configure();
-		friend ostream& operator<< ( ostream& os, const polygon& P ) {
-			switch(P.config) {
-				case 1: os << "Convex"; break;
-				case 2: os << "Concave " << P.concave_count; break;
-				default: os << "None"; break;
-				}
-			return os;
-			}	
+        void configure();
+        friend ostream& operator<< ( ostream& os, const polygon& P ) {
+            switch(P.config) {
+                case 1:
+                    os << "Convex";
+                    break;
+                case 2:
+                    os << "Concave " << P.concave_count;
+                    break;
+                default:
+                    os << "None";
+                    break;
+                }
+            return os;
+            }
     };
 
 polygon::polygon(const char* filename) {
@@ -80,51 +91,68 @@ polygon::polygon(const char* filename) {
         file >> x >> y;
         this->verteces[i] = Point(x,y);
 #ifdef TEST
-	cout << "(" << verteces[i].first << ", " << verteces[i].second <<")" <<endl;
+        cout << "(" << verteces[i].first << ", " << verteces[i].second <<")" <<endl;
 #endif
         }
     file.close();
     }
 
 void polygon::configure() {
-	this->config = 3;
-	bool is_positive[number_point];
-	double theta = 0.0, sum_theta = 0.0, tri_prod = 0;
-	for (int i = 0; i< number_point ; i++){
-		theta = theta_is_neg(verteces[i%number_point], verteces[(i+1)%number_point], verteces[(i+2)%number_point]);
-		tri_prod += signed_surface_tri(verteces[i%number_point], verteces[(i+1)%number_point], verteces[(i+2)%number_point]);
+    bool is_positive[number_point];
+    double theta = 0.0, sum_theta = 0.0;
+    // intersection check;
+    double _cross1 = 1, _cross2 = 1;
+    bool crossed;
+     for (int i = 0; i< number_point ; i++) {
+        _cross1 = cross(verteces[i%number_point], verteces[(i+1)%number_point], verteces[(i+2)%number_point]);
+        _cross1 *= cross(verteces[i%number_point], verteces[(i+1)%number_point], verteces[(i+3)%number_point]);
+        _cross2 = cross(verteces[(i+2)%number_point], verteces[(i+3)%number_point], verteces[i%number_point]);
+        _cross2 *= cross(verteces[(i+2)%number_point], verteces[(i+3)%number_point], verteces[(i+1)%number_point]);
+        if (_cross1 ==0 && _cross2 == 0)
+        crossed =  !(max(verteces[(i)%number_point], verteces[(i+1)%number_point]) < min(verteces[(i+2)%number_point]), verteces[(i+3)%number_point] ||
+                 min(verteces[(i)%number_point], verteces[(i+1)%number_point]) > max(verteces[(i+2)%number_point]), verteces[(i+3)%number_point] )
+        else crossed = (_cross1<0 && _cross2 <0);
+             }
+    if (crossed) this->config=3; return;
+    // convex - concave check
+    for (int i = 0; i< number_point ; i++) {
+        theta = theta_is_neg(verteces[i%number_point], verteces[(i+1)%number_point], verteces[(i+2)%number_point]);
 #ifdef TEST
-		cout << i%number_point << "->" << (i+1)%number_point << "->" << (i+2)%number_point << " " << theta << " " << tri_prod << endl;
-#endif 
-		if (tri_prod ==0) break;
-        if ( theta  > 0 ) {
-				is_positive[i] = true; concave_count++;
-			}
-		else is_positive[i] = false;
-		}
+        cout << i%number_point << "->" << (i+1)%number_point << "->" << (i+2)%number_point << " " ;
+#endif
 
-	if ( concave_count > 0) this->config = 2;
-	else if ( concave_count == 0 ) this->config = 1;
-    }	
-	
+        if ( theta  > 0 ) {
+            is_positive[i] = true;
+            concave_count++;
+            }
+        else
+            is_positive[i] = false;
+        }
+    if ( concave_count == 0 )
+        this->config = 1;
+    else if (  concave_count > 0  )
+        this->config = 2;
+
+    }
+
 
 
 int main() {
 #ifdef TEST
-	char filename[256];
-	cin >> filename;
-	polygon p(filename);
+    char filename[256];
+    cin >> filename;
+    polygon p(filename);
 #else
     polygon p("polygon.inp");
 #endif
 
-  	p.configure();	
+    p.configure();
 #ifdef TEST
-	cout << p << endl;
+    cout << p << endl;
 #else
-	fstream file("polygon.out", ios::out);
-	file << p << endl;
-	file.close();
-#endif	
+    fstream file("polygon.out", ios::out);
+    file << p << endl;
+    file.close();
+#endif
     return 0;
     }
